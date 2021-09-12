@@ -1,6 +1,6 @@
 # 闪电工作室欢迎您的到来！
 
-[首页](/)        [Lightning Games游戏工作室](/lightninggames)        [皮皮鲁教育工作室](/ppl)        [社区账号](https://code.xueersi.com/space/2790285)        [论坛](https://sdgzs.flarum.cloud)
+[首页](/)        [Lightning Games游戏工作室](/games)        [皮皮鲁教育工作室](/ppl)        [社区账号](https://code.xueersi.com/space/2790285)        [论坛](https://sdgzs.flarum.cloud)
 
 ## Lightning Games
 
