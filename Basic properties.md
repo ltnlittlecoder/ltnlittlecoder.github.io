@@ -6,7 +6,7 @@
 
 First step of creating any battle is to change image and basic properties of the enemy. It's actually very simple.
  First, go to the **g.engine** sprite. It sets all the stats, both for the player and for the monster. Then, look on this script:
-![g_engine](C:\Users\light\Desktop\GAME_DEV\UBC_Web\g_engine.jpg)
+![g_engine](https://ltnlittlecoder.github.io/g_engine.jpg)
  A lot of stuff, right? But it's not that complicated. Different sections are separated by **"hide"** blocks for convience.
 
 
@@ -24,25 +24,25 @@ First step of creating any battle is to change image and basic properties of the
 
 **Player** sections sets player's stats.
 
--**g.pl_att** sets player attack. See [stats chart on Undertale Wikia](https://web.archive.org/web/20200202183812/http://undertale.wikia.com/wiki/Stats) for more info.
- -**g.pl_wp.att** sets player weapon's attack. See [ items list on Undertale Wikia](https://web.archive.org/web/20200202183812/http://undertale.wikia.com/wiki/Category:Items) for more info.
- -**g.pl_def** sets player's DEF. See [stats chart on Undertale Wikia](https://web.archive.org/web/20200202183812/http://undertale.wikia.com/wiki/Stats) for more info.
+-**g.pl_att** sets player attack. See [stats chart on Undertale Wikia](http://undertale.wikia.com/wiki/Stats) for more info.
+ -**g.pl_wp.att** sets player weapon's attack. See [ items list on Undertale Wikia](http://undertale.wikia.com/wiki/Category:Items) for more info.
+ -**g.pl_def** sets player's DEF. See [stats chart on Undertale Wikia](http://undertale.wikia.com/wiki/Stats) for more info.
  -**g.pl_hp** sets player's HP. Should not be higher than 99, or HP bar will glitch. 
- -**g.pl_hp.max** sets player's max HP. Should not be higher than 99, or HP bar will glitch. See [stats chart on Undertale Wikia](https://web.archive.org/web/20200202183812/http://undertale.wikia.com/wiki/Stats) for more info.
+ -**g.pl_hp.max** sets player's max HP. Should not be higher than 99, or HP bar will glitch. See [stats chart on Undertale Wikia](http://undertale.wikia.com/wiki/Stats) for more info.
 
 
 
-**ACT menu** section adds stuff to ACT menu! There can be 4 elements at once. Refer to [ text engine tutorial](https://web.archive.org/web/20200202183812/http://scratchtale.orgfree.com/textengine.html) for explaination of what to type.
+**ACT menu** section adds stuff to ACT menu! There can be 4 elements at once. Refer to [ text engine tutorial](https://ltnlittlecoder.github.io/Text Engine) for explaination of what to type.
 
 
 
-**Items** section adds stuff to ITEM menu! There can be 4 elements at once. Refer to [ item list](https://web.archive.org/web/20200202183812/http://scratchtale.orgfree.com/items.html) for list of useable items.
+**Items** section adds stuff to ITEM menu! There can be 4 elements at once. Refer to [ item list](https://ltnlittlecoder.github.io/items.html) for list of useable items.
 
 
 
 **Messages** section sets displayed messages!
 
-You should know how [text engine](https://web.archive.org/web/20200202183812/http://scratchtale.orgfree.com/textengine.html) works by now.
+You should know how [text engine](https://ltnlittlecoder.github.io/Text Engine) works by now.
  -**text.win** is text displayed after you kill enemy.
  -**text.spare** is text displayed after you spare the enemy.
  -**text.flee** is text displayed when you try to run away.
@@ -56,7 +56,7 @@ You should know how [text engine](https://web.archive.org/web/20200202183812/htt
 ###  Changing enemy image
 
 Just delete all of the costumes of **g_monster** sprite and replace them with new ones. They will be animated by default.
-![costumes](C:\Users\light\Desktop\GAME_DEV\UBC_Web\costumes.jpg)
+![costumes](https://ltnlittlecoder.github.io/costumes.jpg)
  Change this script to modify animation speed or stuff like that. **Wait 0 secs** is there to slow down animation by one frame per second.
 
 **So, those are the basics. You can already create something with it,  but you probably want to make your own attacks, and set what ACTing  does, right?
