@@ -1,6 +1,6 @@
 # UBC Wiki
 
-English | 中文
+[English](https://ltnlittlecoder.github.io/UBC) | 中文
 
 
 ## 欢迎使用 UBC
@@ -13,10 +13,10 @@ English | 中文
 
 ### 1. 教程
 
-[1.1. 基本](https://web.archive.org/web/20200217004625/http://scratchtale.orgfree.com/tut1.html)
- [1.2. 文本引擎](https://web.archive.org/web/20200217004625/http://scratchtale.orgfree.com/textengine.html)
- [1.3. 物品](https://ltnlittlecoder.github.io/items.html)
+[1.1. Basics](https://ltnlittlecoder.github.io/Basic properties)
+ [1.2. Text engine](https://ltnlittlecoder.github.io/Text Engine)
+ [1.3. 物品](https://ltnlittlecoder.github.io/items-zh.html)
 
 ### 2. Advanced
 
-[2.1. UBC 变量大全](https://web.archive.org/web/20200217004625/http://scratchtale.orgfree.com/vars.htm)
+[2.1. UBC 可用变量](https://ltnlittlecoder.github.io/Variables-zh)
