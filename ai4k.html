@@ -186,8 +186,10 @@ const LANES   = 4;
 const LANE_W  = 2;
 const TRACK_W = LANES * LANE_W;
 const HALF_W  = TRACK_W / 2;
-const SPEED   = 22;
-const SPAWN_D = 72;
+
+/* ★ 流速为原来的 2 倍（22 → 44），音乐 BPM 不变 */
+const SPEED   = 44;
+const SPAWN_D = 90;          // 生成距离（配合流速缩短可见时长）
 const NOTE_Y  = 0.62;
 
 const W_PERFECT = 0.050;
@@ -217,11 +219,15 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.localClippingEnabled = true;
 
-const clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+/* ★ 裁剪平面：只有落到判定区域「下方」才隐藏
+   平面方程 -z + HIDE_Z > 0 → 保留 z < HIDE_Z
+   判定线位于 z = 0，音符在 0 ~ HIDE_Z 之间仍然完整可见  */
+const HIDE_Z = 4.2;
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), HIDE_Z);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05030e);
-scene.fog = new THREE.Fog(0x05030e, 50, 130);
+scene.fog = new THREE.Fog(0x05030e, 60, 160);
 
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 400);
 camera.position.set(0, 8.5, 13.5);
@@ -257,7 +263,7 @@ scene.add(rimLight);
 /* =========================================================
    轨道
    ========================================================= */
-const TRACK_LEN = 110;
+const TRACK_LEN = 130;
 for (let i = 0; i < LANES; i++) {
   const mat = new THREE.MeshBasicMaterial({
     color: COLORS[i], transparent: true, opacity: 0.055,
@@ -265,7 +271,7 @@ for (let i = 0; i < LANES; i++) {
   });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(LANE_W * 0.94, TRACK_LEN), mat);
   m.rotation.x = -Math.PI / 2;
-  m.position.set(laneX(i), 0, -45);
+  m.position.set(laneX(i), 0, -55);
   scene.add(m);
 }
 
@@ -277,7 +283,7 @@ for (let i = 0; i <= LANES; i++) {
   });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(0.05, TRACK_LEN), mat);
   m.rotation.x = -Math.PI / 2;
-  m.position.set(x, 0.005, -45);
+  m.position.set(x, 0.005, -55);
   scene.add(m);
 }
 
@@ -341,10 +347,10 @@ const glowTex = makeGlowTexture();
 /* =========================================================
    音符几何体 / 材质
    ========================================================= */
-const tapGeo     = new THREE.BoxGeometry(LANE_W * 0.80, 0.46, 1.15);
-const holdBodyGeo= new THREE.BoxGeometry(LANE_W * 0.56, 0.30, 1);
-const holdCapGeo = new THREE.BoxGeometry(LANE_W * 0.70, 0.40, 0.55);
-const slideGeo   = new THREE.OctahedronGeometry(0.55, 0);
+const tapGeo      = new THREE.BoxGeometry(LANE_W * 0.80, 0.46, 1.15);
+const holdBodyGeo = new THREE.BoxGeometry(LANE_W * 0.56, 0.30, 1);
+const holdCapGeo  = new THREE.BoxGeometry(LANE_W * 0.70, 0.40, 0.55);
+const slideGeo    = new THREE.OctahedronGeometry(0.55, 0);
 
 function makeMat(color, opts = {}) {
   return new THREE.MeshStandardMaterial({
@@ -712,8 +718,8 @@ const active = [];
 
 /* 按住状态：每个轨道被按住的来源数 */
 const heldLanes = [0, 0, 0, 0];
-const pointerLanes = new Map(); // pointerId -> lane
-const keyLanes = new Map();     // code -> lane
+const pointerLanes = new Map();
+const keyLanes = new Map();
 
 /* DOM */
 const scoreEl  = document.getElementById('score');
@@ -798,7 +804,8 @@ function updateNoteVisual(n) {
     n.obj.body.rotation.set(0, 0, 0);
     n.obj.head.position.set(laneX(n.lane), NOTE_Y, z0);
     n.obj.tail.position.set(laneX(n.lane), NOTE_Y, z1);
-    n.obj.group.visible = z1 <= 0.5;
+    /* 尾部完全沉入判定区域下方后才整组隐藏，其余交给裁剪平面 */
+    n.obj.group.visible = z1 <= HIDE_Z - 0.2;
   } else if (n.type === T_DIAG) {
     const z1 = (songTime - (n.t + n.dur)) * SPEED;
     const x0 = laneX(n.lane);
@@ -811,7 +818,7 @@ function updateNoteVisual(n) {
     n.obj.body.scale.set(1, 1, len);
     n.obj.head.position.set(x0, NOTE_Y, z0);
     n.obj.tail.position.set(x1, NOTE_Y, z1);
-    n.obj.group.visible = z1 <= 0.5;
+    n.obj.group.visible = z1 <= HIDE_Z - 0.2;
   } else if (n.type === T_SLIDE) {
     n.obj.group.position.set(laneX(n.lane), NOTE_Y, z0);
     n.obj.mesh.rotation.y = songTime * 3;
@@ -988,7 +995,6 @@ async function startGame() {
   masterGain.gain.cancelScheduledValues(actx.currentTime);
   masterGain.gain.setValueAtTime(0.42, actx.currentTime);
 
-  // 释放当前活跃音符
   for (const n of active) {
     releaseVisual(n.type, n.obj);
   }
