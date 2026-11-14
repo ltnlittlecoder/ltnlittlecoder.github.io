@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>NEON DROP · 3D 下落式音游</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    width:100%; height:100%; overflow:hidden; background:#05030e;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
+  }
+  #game { display:block; position:fixed; inset:0; touch-action:none; }
+
+  /* ---------- HUD ---------- */
+  #hud { position:fixed; inset:0; pointer-events:none; }
+  .label {
+    font-size:11px; letter-spacing:3px; color:#5f6b9e; font-weight:700; margin-bottom:2px;
+  }
+  #topLeft  { position:absolute; top:22px; left:26px; }
+  #topRight { position:absolute; top:22px; right:26px; text-align:right; }
+  #score {
+    font-size:34px; font-weight:900; color:#eaf6ff;
+    text-shadow:0 0 14px rgba(90,200,255,.85), 0 0 40px rgba(90,200,255,.4);
+    font-variant-numeric: tabular-nums; line-height:1;
+  }
+  #acc {
+    font-size:26px; font-weight:800; color:#b9f0ff;
+    text-shadow:0 0 12px rgba(90,220,255,.7);
+    font-variant-numeric: tabular-nums; line-height:1;
+  }
+  #comboWrap {
+    position:absolute; top:14%; left:50%; transform:translateX(-50%);
+    text-align:center; opacity:0; transition:opacity .2s;
+  }
+  #comboWrap.on { opacity:1; }
+  #combo {
+    font-size:60px; font-weight:900; color:#fff; line-height:1;
+    text-shadow:0 0 18px rgba(120,220,255,.95), 0 0 46px rgba(120,140,255,.6);
+    transition:transform .08s ease-out;
+    font-variant-numeric: tabular-nums;
+  }
+  #comboLabel {
+    font-size:12px; letter-spacing:6px; color:#7fd0ff; font-weight:800; margin-top:2px;
+  }
+  #judge {
+    position:absolute; left:50%; top:57%; transform:translate(-50%,-50%);
+    font-size:40px; font-weight:900; letter-spacing:3px; opacity:0;
+    white-space:nowrap;
+  }
+  @keyframes judgePop {
+    0%   { opacity:0; transform:translate(-50%,-50%) scale(1.7); }
+    18%  { opacity:1; transform:translate(-50%,-50%) scale(1); }
+    68%  { opacity:1; transform:translate(-50%,-50%) scale(1); }
+    100% { opacity:0; transform:translate(-50%,-50%) scale(.92); }
+  }
+  .j-perfect { color:#8ffcff; text-shadow:0 0 18px #22d9ff, 0 0 45px #0088ff; }
+  .j-great   { color:#b9ff8f; text-shadow:0 0 18px #59ff3d, 0 0 45px #1d9e00; }
+  .j-good    { color:#ffe08a; text-shadow:0 0 18px #ffb300, 0 0 45px #a56a00; }
+  .j-miss    { color:#ff6a8e; text-shadow:0 0 18px #ff2b5e, 0 0 45px #8c0025; }
+
+  /* ---------- 屏幕 ---------- */
+  .screen {
+    position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:16px;
+    background:radial-gradient(ellipse at 50% 45%, rgba(20,15,60,.82), rgba(3,2,10,.96));
+    backdrop-filter: blur(6px); z-index:20; transition:opacity .35s;
+  }
+  .screen.hidden { opacity:0; pointer-events:none; }
+  .screen h1 {
+    font-size:clamp(38px,8vw,74px); font-weight:900; letter-spacing:10px;
+    color:#eaf9ff; text-shadow:0 0 22px #2ec7ff, 0 0 70px #0a63ff, 0 0 120px #6a2bff;
+    margin-left:10px;
+  }
+  .screen h2 {
+    font-size:clamp(26px,5vw,44px); font-weight:900; letter-spacing:8px;
+    color:#eaf9ff; text-shadow:0 0 20px #2ec7ff, 0 0 60px #0a63ff;
+  }
+  .sub { color:#7fa8d8; letter-spacing:6px; font-size:13px; margin-top:-8px; }
+  .keys { display:flex; gap:12px; margin:18px 0 6px; }
+  .keys span {
+    width:56px; height:56px; border-radius:12px; display:flex;
+    align-items:center; justify-content:center; font-size:20px; font-weight:900;
+    color:#bff0ff; border:2px solid rgba(90,200,255,.45);
+    background:rgba(30,80,160,.18);
+    box-shadow:0 0 18px rgba(60,170,255,.28), inset 0 0 18px rgba(60,170,255,.12);
+  }
+  .tip { color:#6d7fae; font-size:13px; letter-spacing:2px; }
+  button {
+    margin-top:22px; padding:14px 52px; font-size:17px; font-weight:900;
+    letter-spacing:6px; color:#04121d; cursor:pointer; border:none;
+    border-radius:40px; background:linear-gradient(180deg,#8ff2ff,#1fb6ff);
+    box-shadow:0 0 26px rgba(60,190,255,.75), 0 6px 24px rgba(0,120,255,.45);
+    transition:transform .12s, box-shadow .12s;
+    font-family:inherit;
+  }
+  button:hover { transform:translateY(-2px) scale(1.03); box-shadow:0 0 40px rgba(80,210,255,.95), 0 8px 30px rgba(0,120,255,.6); }
+  button:active { transform:scale(.97); }
+
+  .stats { display:flex; flex-direction:column; gap:8px; margin-top:6px; min-width:260px; }
+  .stat {
+    display:flex; justify-content:space-between; font-size:15px; letter-spacing:2px;
+    color:#8fb2d8; padding:7px 16px; border-radius:8px; background:rgba(30,60,120,.22);
+    border:1px solid rgba(80,160,255,.16);
+  }
+  .stat b { color:#eaf6ff; font-weight:800; font-variant-numeric:tabular-nums; }
+  .stat.p b { color:#8ffcff; }
+  .stat.g b { color:#b9ff8f; }
+  .stat.o b { color:#ffe08a; }
+  .stat.m b { color:#ff6a8e; }
+
+  /* ---------- 触屏按键（仅视觉提示） ---------- */
+  #touch {
+    position:fixed; bottom:0; left:0; right:0; height:26%; display:none;
+    z-index:10; pointer-events:none;
+  }
+  #touch .tbtn {
+    flex:1; display:flex; align-items:flex-end; justify-content:center;
+    padding-bottom:18px; font-size:13px; letter-spacing:2px; color:rgba(160,220,255,.35);
+    font-weight:800; border-right:1px solid rgba(90,180,255,.12);
+  }
+  #touch .tbtn:last-child { border-right:none; }
+  @media (pointer: coarse) { #touch { display:flex; } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="topLeft">
+    <div class="label">SCORE</div>
+    <div id="score">0</div>
+  </div>
+  <div id="topRight">
+    <div class="label">ACCURACY</div>
+    <div id="acc">100.00%</div>
+  </div>
+  <div id="comboWrap">
+    <div id="combo">0</div>
+    <div id="comboLabel">COMBO</div>
+  </div>
+  <div id="judge"></div>
+</div>
+
+<div id="touch">
+  <div class="tbtn" data-lane="0">D</div>
+  <div class="tbtn" data-lane="1">F</div>
+  <div class="tbtn" data-lane="2">J</div>
+  <div class="tbtn" data-lane="3">K</div>
+</div>
+
+<div id="startScreen" class="screen">
+  <h1>NEON DROP</h1>
+  <p class="sub">3 D &nbsp; F A L L I N G &nbsp; R H Y T H M</p>
+  <div class="keys"><span>D</span><span>F</span><span>J</span><span>K</span></div>
+  <p class="tip">点击 / 按住对应轨道 · 划键无需点击，按住或划过即可</p>
+  <button id="startBtn">START</button>
+</div>
+
+<div id="endScreen" class="screen hidden">
+  <h2>RESULT</h2>
+  <div class="stats">
+    <div class="stat"><span>得分</span><b id="fScore">0</b></div>
+    <div class="stat"><span>准确率</span><b id="fAcc">0%</b></div>
+    <div class="stat"><span>最大连击</span><b id="fCombo">0</b></div>
+    <div class="stat p"><span>PERFECT</span><b id="fPerfect">0</b></div>
+    <div class="stat g"><span>GREAT</span><b id="fGreat">0</b></div>
+    <div class="stat o"><span>GOOD</span><b id="fGood">0</b></div>
+    <div class="stat m"><span>MISS</span><b id="fMiss">0</b></div>
+  </div>
+  <button id="retryBtn">RETRY</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* =========================================================
+   常量
+   ========================================================= */
+const LANES   = 4;
+const LANE_W  = 2;
+const TRACK_W = LANES * LANE_W;
+const HALF_W  = TRACK_W / 2;
+const SPEED   = 22;
+const SPAWN_D = 72;
+const NOTE_Y  = 0.62;
+
+const W_PERFECT = 0.050;
+const W_GREAT   = 0.090;
+const W_MISS    = 0.150;
+const W_SLIDE   = 0.150;
+
+const BPM  = 150;
+const BEAT = 60 / BPM;
+const STEP = BEAT / 4;
+
+const T_TAP   = 0;
+const T_HOLD  = 1;
+const T_DIAG  = 2;
+const T_SLIDE = 3;
+
+const laneX  = i => -HALF_W + LANE_W / 2 + i * LANE_W;
+const COLORS = [0x35e0ff, 0xa46bff, 0xff5fc8, 0xffd23f];
+
+/* =========================================================
+   渲染器 / 场景 / 相机
+   ========================================================= */
+const canvas   = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.localClippingEnabled = true;
+
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05030e);
+scene.fog = new THREE.Fog(0x05030e, 50, 130);
+
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 400);
+camera.position.set(0, 8.5, 13.5);
+camera.lookAt(0, -1.2, -12);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const keyLight = new THREE.DirectionalLight(0xbfe6ff, 2.2);
+keyLight.position.set(4, 14, 8);
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x7a4bff, 1.6);
+rimLight.position.set(-6, 6, -14);
+scene.add(rimLight);
+
+/* =========================================================
+   背景星点
+   ========================================================= */
+(function stars() {
+  const N = 900, pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    pos[i * 3]     = (Math.random() - 0.5) * 200;
+    pos[i * 3 + 1] = Math.random() * 70 - 12;
+    pos[i * 3 + 2] = -Math.random() * 190;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const m = new THREE.PointsMaterial({
+    color: 0x6f83cc, size: 0.45, transparent: true, opacity: 0.75,
+    sizeAttenuation: true, depthWrite: false
+  });
+  scene.add(new THREE.Points(g, m));
+})();
+
+/* =========================================================
+   轨道
+   ========================================================= */
+const TRACK_LEN = 110;
+for (let i = 0; i < LANES; i++) {
+  const mat = new THREE.MeshBasicMaterial({
+    color: COLORS[i], transparent: true, opacity: 0.055,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(LANE_W * 0.94, TRACK_LEN), mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(laneX(i), 0, -45);
+  scene.add(m);
+}
+
+for (let i = 0; i <= LANES; i++) {
+  const x = -HALF_W + i * LANE_W;
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0x3a4a8a, transparent: true, opacity: 0.55,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.05, TRACK_LEN), mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, 0.005, -45);
+  scene.add(m);
+}
+
+const judgeGlow = new THREE.Mesh(
+  new THREE.PlaneGeometry(TRACK_W + 1.2, 2.6),
+  new THREE.MeshBasicMaterial({
+    color: 0x2f7bff, transparent: true, opacity: 0.14,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  })
+);
+judgeGlow.rotation.x = -Math.PI / 2;
+judgeGlow.position.set(0, 0.012, 0);
+scene.add(judgeGlow);
+
+const judgeLine = new THREE.Mesh(
+  new THREE.PlaneGeometry(TRACK_W, 0.22),
+  new THREE.MeshBasicMaterial({
+    color: 0xa8f4ff, transparent: true, opacity: 0.95,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  })
+);
+judgeLine.rotation.x = -Math.PI / 2;
+judgeLine.position.set(0, 0.02, 0);
+scene.add(judgeLine);
+
+const receptorMats = [];
+for (let i = 0; i < LANES; i++) {
+  const mat = new THREE.MeshBasicMaterial({
+    color: COLORS[i], transparent: true, opacity: 0.16,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(LANE_W * 0.88, 1.5), mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(laneX(i), 0.016, 0);
+  scene.add(m);
+  receptorMats.push(mat);
+}
+const laneFlash = [0, 0, 0, 0];
+
+/* =========================================================
+   光晕贴图
+   ========================================================= */
+function makeGlowTexture() {
+  const s = 128;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = s;
+  const ctx = cv.getContext('2d');
+  const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.22, 'rgba(255,255,255,0.62)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.16)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, s, s);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const glowTex = makeGlowTexture();
+
+/* =========================================================
+   音符几何体 / 材质
+   ========================================================= */
+const tapGeo     = new THREE.BoxGeometry(LANE_W * 0.80, 0.46, 1.15);
+const holdBodyGeo= new THREE.BoxGeometry(LANE_W * 0.56, 0.30, 1);
+const holdCapGeo = new THREE.BoxGeometry(LANE_W * 0.70, 0.40, 0.55);
+const slideGeo   = new THREE.OctahedronGeometry(0.55, 0);
+
+function makeMat(color, opts = {}) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: opts.emissiveIntensity ?? 0.8,
+    roughness: opts.roughness ?? 0.35,
+    metalness: opts.metalness ?? 0.15,
+    transparent: opts.transparent ?? false,
+    opacity: opts.opacity ?? 1,
+    depthWrite: opts.depthWrite ?? true,
+    clippingPlanes: [clipPlane],
+    side: opts.side ?? THREE.FrontSide,
+  });
+}
+
+const tapMats = COLORS.map(c => makeMat(c, { emissiveIntensity: 0.9 }));
+const holdBodyMats = COLORS.map(c => makeMat(c, {
+  emissiveIntensity: 0.55, transparent: true, opacity: 0.72, depthWrite: false
+}));
+const holdCapMats = COLORS.map(c => makeMat(c, { emissiveIntensity: 1.0 }));
+const slideMat = makeMat(0xffd23f, { emissiveIntensity: 1.3, roughness: 0.2 });
+
+const glowMats = COLORS.map(c => new THREE.SpriteMaterial({
+  map: glowTex, color: c, blending: THREE.AdditiveBlending,
+  transparent: true, depthWrite: false, opacity: 0.9
+}));
+
+/* =========================================================
+   音符对象池
+   ========================================================= */
+const pools = { [T_TAP]: [], [T_HOLD]: [], [T_DIAG]: [], [T_SLIDE]: [] };
+
+function createTapVisual(lane) {
+  const group = new THREE.Group();
+  const mesh = new THREE.Mesh(tapGeo, tapMats[lane]);
+  const sprite = new THREE.Sprite(glowMats[lane]);
+  sprite.scale.set(2.9, 1.9, 1);
+  group.add(mesh, sprite);
+  group.visible = false;
+  scene.add(group);
+  return { group, mesh, sprite };
+}
+
+function createHoldVisual(lane) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(holdBodyGeo, holdBodyMats[lane]);
+  const head = new THREE.Mesh(holdCapGeo, holdCapMats[lane]);
+  const tail = new THREE.Mesh(holdCapGeo, holdCapMats[lane]);
+  body.position.set(0, NOTE_Y, 0);
+  head.position.set(0, NOTE_Y, 0);
+  tail.position.set(0, NOTE_Y, 0);
+  group.add(body, head, tail);
+  group.visible = false;
+  scene.add(group);
+  return { group, body, head, tail };
+}
+
+function createSlideVisual(lane) {
+  const group = new THREE.Group();
+  const mesh = new THREE.Mesh(slideGeo, slideMat);
+  mesh.scale.set(1, 0.35, 1);
+  group.add(mesh);
+  group.visible = false;
+  scene.add(group);
+  return { group, mesh };
+}
+
+function acquireVisual(type, lane) {
+  const pool = pools[type];
+  let o = pool.pop();
+  if (!o) {
+    if (type === T_TAP) o = createTapVisual(lane);
+    else if (type === T_HOLD || type === T_DIAG) o = createHoldVisual(lane);
+    else o = createSlideVisual(lane);
+  } else {
+    if (type === T_TAP) {
+      o.mesh.material = tapMats[lane];
+      o.sprite.material = glowMats[lane];
+    } else if (type === T_HOLD || type === T_DIAG) {
+      o.body.material = holdBodyMats[lane];
+      o.head.material = holdCapMats[lane];
+      o.tail.material = holdCapMats[lane];
+    }
+  }
+  o.group.visible = true;
+  o.group.position.set(0, 0, 0);
+  o.group.rotation.set(0, 0, 0);
+  o.group.scale.set(1, 1, 1);
+  return o;
+}
+
+function releaseVisual(type, o) {
+  o.group.visible = false;
+  pools[type].push(o);
+}
+
+/* =========================================================
+   特效
+   ========================================================= */
+const ringGeo = new THREE.RingGeometry(0.34, 0.5, 28);
+const effects = [];
+
+function spawnHitRing(lane, power) {
+  const mat = new THREE.MeshBasicMaterial({
+    color: COLORS[lane], transparent: true, opacity: 1,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(ringGeo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(laneX(lane), 0.03, 0);
+  scene.add(mesh);
+  effects.push({ mesh, mat, t: 0, dur: 0.42, grow: 2.4 + power * 1.6 });
+}
+
+function updateEffects(dt) {
+  for (let i = effects.length - 1; i >= 0; i--) {
+    const e = effects[i];
+    e.t += dt;
+    const p = e.t / e.dur;
+    if (p >= 1) {
+      scene.remove(e.mesh);
+      e.mat.dispose();
+      effects.splice(i, 1);
+      continue;
+    }
+    const s = 1 + p * e.grow;
+    e.mesh.scale.set(s, s, s);
+    e.mat.opacity = (1 - p) * (1 - p);
+  }
+  for (let i = 0; i < LANES; i++) {
+    laneFlash[i] = Math.max(0, laneFlash[i] - dt * 5);
+    receptorMats[i].opacity = 0.16 + laneFlash[i] * 0.84;
+  }
+}
+
+/* =========================================================
+   音频引擎
+   ========================================================= */
+let actx = null, masterGain = null, noiseBuf = null;
+
+function initAudio() {
+  if (actx) return;
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = actx.createGain();
+  masterGain.gain.value = 0.42;
+  masterGain.connect(actx.destination);
+
+  const len = Math.floor(actx.sampleRate * 1.0);
+  noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+}
+
+function kick(t) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(170, t);
+  o.frequency.exponentialRampToValueAtTime(44, t + 0.11);
+  g.gain.setValueAtTime(1.0, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
+  o.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t + 0.3);
+}
+
+function snare(t) {
+  const src = actx.createBufferSource(); src.buffer = noiseBuf;
+  const f = actx.createBiquadFilter();
+  f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 0.9;
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.45, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+  src.connect(f); f.connect(g); g.connect(masterGain);
+  src.start(t); src.stop(t + 0.2);
+
+  const o = actx.createOscillator(), g2 = actx.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(190, t);
+  g2.gain.setValueAtTime(0.22, t);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  o.connect(g2); g2.connect(masterGain);
+  o.start(t); o.stop(t + 0.12);
+}
+
+function hat(t, vol) {
+  const src = actx.createBufferSource(); src.buffer = noiseBuf;
+  const f = actx.createBiquadFilter();
+  f.type = 'highpass'; f.frequency.value = 8200;
+  const g = actx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+  src.connect(f); f.connect(g); g.connect(masterGain);
+  src.start(t); src.stop(t + 0.08);
+}
+
+const BASS_SEQ = [55, 55, 73.42, 55, 65.41, 55, 82.41, 65.41];
+function bass(t, freq) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(freq, t);
+  const f = actx.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(360, t);
+  f.frequency.exponentialRampToValueAtTime(1400, t + 0.02);
+  f.frequency.exponentialRampToValueAtTime(280, t + 0.2);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.26, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  o.connect(f); f.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t + 0.25);
+}
+
+function hitBlip(lane, quality) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'square';
+  const base = 620 + lane * 90 + quality * 120;
+  o.frequency.setValueAtTime(base, t);
+  o.frequency.exponentialRampToValueAtTime(base * 1.7, t + 0.05);
+  g.gain.setValueAtTime(0.10, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+  o.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t + 0.1);
+}
+
+function slideBlip(lane) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(880 + lane * 100, t);
+  o.frequency.exponentialRampToValueAtTime(1760 + lane * 100, t + 0.08);
+  g.gain.setValueAtTime(0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+  o.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t + 0.16);
+}
+
+function scheduleStep(step, time) {
+  const s = step % 16;
+  if (s === 0 || s === 8 || s === 11) kick(time);
+  if (s === 4 || s === 12) snare(time);
+  hat(time, s % 2 === 0 ? 0.13 : 0.055);
+  if (s % 4 === 0) bass(time, BASS_SEQ[Math.floor(step / 4) % BASS_SEQ.length]);
+}
+
+/* =========================================================
+   谱面生成
+   ========================================================= */
+let rngState = 987654321;
+function rnd() {
+  rngState = (rngState * 1664525 + 1013904223) % 4294967296;
+  return rngState / 4294967296;
+}
+
+function generateChart() {
+  rngState = 20240613;
+  const notes = [];
+  const TOTAL_BARS = 30;
+  const START_BAR  = 2;
+  const totalSteps = TOTAL_BARS * 16;
+  const occupied = new Uint8Array(totalSteps);
+  let lastLane = 1;
+
+  for (let bar = START_BAR; bar < TOTAL_BARS; bar++) {
+    const prog = (bar - START_BAR) / (TOTAL_BARS - START_BAR);
+    const barStartStep = bar * 16;
+
+    const mask = new Array(16).fill(0);
+    if (prog < 0.25) {
+      for (let s = 0; s < 16; s += 4) mask[s] = 1;
+      if (rnd() < 0.3) mask[8] = 1;
+    } else if (prog < 0.55) {
+      for (let s = 0; s < 16; s += 2) mask[s] = 1;
+      if (rnd() < 0.3) mask[7] = 1;
+    } else if (prog < 0.8) {
+      for (let s = 0; s < 16; s += 2) mask[s] = 1;
+      for (let s = 1; s < 16; s += 4) if (rnd() < 0.3) mask[s] = 1;
+    } else {
+      for (let s = 0; s < 16; s++) mask[s] = rnd() < 0.5 ? 1 : 0;
+      mask[0] = 1; mask[8] = 1;
+    }
+
+    for (let s = 0; s < 16; s++) {
+      if (!mask[s]) continue;
+      const step = barStartStep + s;
+      if (occupied[step]) continue;
+
+      let type = T_TAP;
+      const r = rnd();
+      if (prog > 0.32 && r < 0.14) type = T_HOLD;
+      else if (prog > 0.5 && r < 0.26) type = T_DIAG;
+      else if (prog > 0.2 && r < 0.42) type = T_SLIDE;
+
+      let lane = Math.floor(rnd() * LANES);
+      if (lane === lastLane) lane = (lane + 1 + Math.floor(rnd() * 2)) % LANES;
+
+      const t = step * STEP;
+
+      if (type === T_HOLD || type === T_DIAG) {
+        const maxSteps = type === T_HOLD ? 8 : 6;
+        const minSteps = 2;
+        let steps = minSteps + Math.floor(rnd() * (maxSteps - minSteps + 1));
+        if (step + steps > totalSteps) steps = totalSteps - step;
+        if (steps < 2) continue;
+
+        let ok = true;
+        for (let k = 0; k < steps; k++) {
+          if (occupied[step + k]) { ok = false; break; }
+        }
+        if (!ok) continue;
+        for (let k = 0; k < steps; k++) occupied[step + k] = 1;
+
+        let lane2 = lane;
+        if (type === T_DIAG) {
+          const candidates = [];
+          for (let d = -2; d <= 2; d++) {
+            if (d === 0) continue;
+            const l = lane + d;
+            if (l >= 0 && l < LANES) candidates.push(l);
+          }
+          lane2 = candidates[Math.floor(rnd() * candidates.length)];
+        }
+
+        notes.push({
+          type, t, lane, lane2,
+          dur: steps * STEP,
+          state: 'pending',
+          obj: null
+        });
+        lastLane = type === T_DIAG ? lane2 : lane;
+      } else {
+        occupied[step] = 1;
+        notes.push({
+          type, t, lane, lane2: lane, dur: 0,
+          state: 'pending', obj: null
+        });
+        lastLane = lane;
+      }
+    }
+  }
+
+  notes.sort((a, b) => a.t - b.t || a.lane - b.lane);
+  return notes;
+}
+
+/* =========================================================
+   游戏状态
+   ========================================================= */
+const state = {
+  score: 0, combo: 0, maxCombo: 0,
+  counts: { perfect: 0, great: 0, good: 0, miss: 0 }
+};
+
+let chart = [];
+let nextIdx = 0;
+let songStart = 0;
+let songTime = 0;
+let schedStep = 0;
+let playing = false;
+let songEnd = 0;
+
+const active = [];
+
+/* 按住状态：每个轨道被按住的来源数 */
+const heldLanes = [0, 0, 0, 0];
+const pointerLanes = new Map(); // pointerId -> lane
+const keyLanes = new Map();     // code -> lane
+
+/* DOM */
+const scoreEl  = document.getElementById('score');
+const accEl    = document.getElementById('acc');
+const comboEl  = document.getElementById('combo');
+const comboWrap= document.getElementById('comboWrap');
+const judgeEl  = document.getElementById('judge');
+const startScreen = document.getElementById('startScreen');
+const endScreen   = document.getElementById('endScreen');
+
+function totalJudged() {
+  const c = state.counts;
+  return c.perfect + c.great + c.good + c.miss;
+}
+function accuracy() {
+  const c = state.counts;
+  const t = totalJudged();
+  if (t === 0) return 100;
+  return ((c.perfect * 1 + c.great * 0.7 + c.good * 0.4) / t) * 100;
+}
+function updateHUD() {
+  scoreEl.textContent = state.score.toLocaleString('en-US');
+  accEl.textContent = accuracy().toFixed(2) + '%';
+  if (state.combo >= 3) {
+    comboWrap.classList.add('on');
+    comboEl.textContent = state.combo;
+  } else {
+    comboWrap.classList.remove('on');
+  }
+}
+function bumpCombo() {
+  comboEl.style.transform = 'scale(1.28)';
+  requestAnimationFrame(() => {
+    setTimeout(() => { comboEl.style.transform = 'scale(1)'; }, 70);
+  });
+}
+function showJudge(text, cls) {
+  judgeEl.textContent = text;
+  judgeEl.className = cls;
+  judgeEl.style.animation = 'none';
+  void judgeEl.offsetWidth;
+  judgeEl.style.animation = 'judgePop 0.5s ease-out';
+}
+
+/* =========================================================
+   音符生成 / 更新
+   ========================================================= */
+function spawnNote(data) {
+  const n = {
+    type: data.type,
+    t: data.t,
+    lane: data.lane,
+    lane2: data.lane2,
+    dur: data.dur,
+    state: 'pending',
+    obj: null,
+    diagAngle: 0,
+  };
+  n.obj = acquireVisual(n.type, n.lane);
+  if (n.type === T_DIAG) {
+    const x0 = laneX(n.lane);
+    const x1 = laneX(n.lane2);
+    const dz = -n.dur * SPEED;
+    n.diagAngle = Math.atan2(x1 - x0, dz);
+  }
+  active.push(n);
+  return n;
+}
+
+function updateNoteVisual(n) {
+  const z0 = (songTime - n.t) * SPEED;
+
+  if (n.type === T_TAP) {
+    n.obj.group.position.set(laneX(n.lane), NOTE_Y, z0);
+    n.obj.sprite.visible = z0 <= 0.1;
+  } else if (n.type === T_HOLD) {
+    const z1 = (songTime - (n.t + n.dur)) * SPEED;
+    const midZ = (z0 + z1) / 2;
+    const len = Math.max(0.001, z0 - z1);
+    n.obj.body.position.set(laneX(n.lane), NOTE_Y, midZ);
+    n.obj.body.scale.set(1, 1, len);
+    n.obj.body.rotation.set(0, 0, 0);
+    n.obj.head.position.set(laneX(n.lane), NOTE_Y, z0);
+    n.obj.tail.position.set(laneX(n.lane), NOTE_Y, z1);
+    n.obj.group.visible = z1 <= 0.5;
+  } else if (n.type === T_DIAG) {
+    const z1 = (songTime - (n.t + n.dur)) * SPEED;
+    const x0 = laneX(n.lane);
+    const x1 = laneX(n.lane2);
+    const midX = (x0 + x1) / 2;
+    const midZ = (z0 + z1) / 2;
+    const len = Math.sqrt((x1 - x0) ** 2 + (z0 - z1) ** 2);
+    n.obj.body.position.set(midX, NOTE_Y, midZ);
+    n.obj.body.rotation.set(0, n.diagAngle, 0);
+    n.obj.body.scale.set(1, 1, len);
+    n.obj.head.position.set(x0, NOTE_Y, z0);
+    n.obj.tail.position.set(x1, NOTE_Y, z1);
+    n.obj.group.visible = z1 <= 0.5;
+  } else if (n.type === T_SLIDE) {
+    n.obj.group.position.set(laneX(n.lane), NOTE_Y, z0);
+    n.obj.mesh.rotation.y = songTime * 3;
+    n.obj.mesh.rotation.x = 0;
+  }
+}
+
+function registerMiss(n) {
+  state.counts.miss++;
+  state.combo = 0;
+  showJudge('MISS', 'j-miss');
+  updateHUD();
+}
+
+function hitSlide(n) {
+  state.counts.perfect++;
+  state.combo++;
+  if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+  const pts = 250 + Math.min(state.combo, 100) * 2;
+  state.score += pts;
+  showJudge('SLIDE', 'j-perfect');
+  bumpCombo();
+  spawnHitRing(n.lane, 0.8);
+  slideBlip(n.lane);
+  laneFlash[n.lane] = 1;
+  updateHUD();
+}
+
+function completeHold(n, isDiag) {
+  const pts = isDiag ? 200 : 150;
+  state.score += pts;
+  const lane = isDiag ? n.lane2 : n.lane;
+  spawnHitRing(lane, 0.5);
+  laneFlash[lane] = 1;
+  updateHUD();
+}
+
+function updateNoteLogic(n) {
+  if (n.state === 'done') return;
+  const dtSong = songTime - n.t;
+
+  if (n.type === T_TAP) {
+    if (dtSong > W_MISS) {
+      n.state = 'done';
+      registerMiss(n);
+    }
+  } else if (n.type === T_SLIDE) {
+    if (dtSong > W_SLIDE) {
+      n.state = 'done';
+      registerMiss(n);
+    }
+  } else if (n.type === T_HOLD || n.type === T_DIAG) {
+    if (n.state === 'pending') {
+      if (dtSong > W_MISS) {
+        n.state = 'done';
+        registerMiss(n);
+      }
+    } else if (n.state === 'holding') {
+      if (n.type === T_HOLD) {
+        if (heldLanes[n.lane] === 0) {
+          n.state = 'done';
+          registerMiss(n);
+        } else if (songTime >= n.t + n.dur) {
+          n.state = 'done';
+          completeHold(n, false);
+        }
+      } else {
+        if (songTime >= n.t + n.dur) {
+          n.state = 'done';
+          if (heldLanes[n.lane2] > 0) {
+            completeHold(n, true);
+          } else {
+            registerMiss(n);
+          }
+        }
+      }
+    }
+  }
+}
+
+/* =========================================================
+   输入判定
+   ========================================================= */
+function onPress(lane) {
+  if (!playing) return;
+  laneFlash[lane] = 1;
+
+  let best = null;
+  let bestAbs = Math.max(W_MISS, W_SLIDE) + 1;
+  for (const n of active) {
+    if (n.state !== 'pending') continue;
+    if (n.lane !== lane) continue;
+    const d = Math.abs(songTime - n.t);
+    if (d < bestAbs) {
+      bestAbs = d;
+      best = n;
+    }
+  }
+  if (!best) return;
+
+  const window = best.type === T_SLIDE ? W_SLIDE : W_MISS;
+  if (bestAbs > window) return;
+
+  if (best.type === T_SLIDE) {
+    best.state = 'done';
+    hitSlide(best);
+    return;
+  }
+
+  let grade, pts, cls, txt;
+  if (bestAbs <= W_PERFECT)      { grade = 'perfect'; pts = 300; cls = 'j-perfect'; txt = 'PERFECT'; }
+  else if (bestAbs <= W_GREAT)   { grade = 'great';   pts = 200; cls = 'j-great';   txt = 'GREAT'; }
+  else                           { grade = 'good';    pts = 100; cls = 'j-good';    txt = 'GOOD'; }
+
+  state.counts[grade]++;
+  state.combo++;
+  if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+  const bonus = Math.min(state.combo, 100) * 2;
+  state.score += pts + bonus;
+
+  showJudge(txt, cls);
+  bumpCombo();
+  spawnHitRing(lane, grade === 'perfect' ? 1 : grade === 'great' ? 0.6 : 0.3);
+  hitBlip(lane, grade === 'perfect' ? 1 : grade === 'great' ? 0.6 : 0.2);
+  updateHUD();
+
+  if (best.type === T_TAP) {
+    best.state = 'done';
+  } else {
+    best.state = 'holding';
+    best.holdStart = songTime;
+  }
+}
+
+function checkSlides() {
+  if (!playing) return;
+  for (const n of active) {
+    if (n.type !== T_SLIDE || n.state !== 'pending') continue;
+    const d = songTime - n.t;
+    if (Math.abs(d) <= W_SLIDE && heldLanes[n.lane] > 0) {
+      n.state = 'done';
+      hitSlide(n);
+    }
+  }
+}
+
+/* =========================================================
+   屏幕坐标 -> 轨道
+   ========================================================= */
+const raycaster = new THREE.Raycaster();
+const planeY0 = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+function getLaneFromScreen(clientX, clientY) {
+  const ndc = new THREE.Vector2(
+    (clientX / innerWidth) * 2 - 1,
+    -(clientY / innerHeight) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  const point = new THREE.Vector3();
+  const hit = raycaster.ray.intersectPlane(planeY0, point);
+  if (!hit) return -1;
+  let lane = Math.floor((point.x + HALF_W) / LANE_W);
+  if (lane < 0) lane = 0;
+  if (lane >= LANES) lane = LANES - 1;
+  return lane;
+}
+
+/* =========================================================
+   游戏流程
+   ========================================================= */
+async function startGame() {
+  initAudio();
+  if (actx.state === 'suspended') await actx.resume();
+  masterGain.gain.cancelScheduledValues(actx.currentTime);
+  masterGain.gain.setValueAtTime(0.42, actx.currentTime);
+
+  // 释放当前活跃音符
+  for (const n of active) {
+    releaseVisual(n.type, n.obj);
+  }
+  active.length = 0;
+
+  for (const e of effects) {
+    scene.remove(e.mesh);
+    e.mat.dispose();
+  }
+  effects.length = 0;
+
+  heldLanes.fill(0);
+  pointerLanes.clear();
+  keyLanes.clear();
+
+  for (let i = 0; i < LANES; i++) laneFlash[i] = 0;
+
+  chart   = generateChart();
+  nextIdx = 0;
+  schedStep = 0;
+
+  state.score = 0;
+  state.combo = 0;
+  state.maxCombo = 0;
+  state.counts = { perfect: 0, great: 0, good: 0, miss: 0 };
+
+  judgeEl.style.animation = 'none';
+  judgeEl.style.opacity = '0';
+
+  updateHUD();
+
+  songEnd = 0;
+  for (const n of chart) {
+    songEnd = Math.max(songEnd, n.t + (n.dur || 0));
+  }
+  songEnd += 2.5;
+
+  songStart = actx.currentTime + 0.9;
+  songTime  = -0.9;
+  playing   = true;
+
+  startScreen.classList.add('hidden');
+  endScreen.classList.add('hidden');
+}
+
+function endGame() {
+  playing = false;
+  masterGain.gain.setTargetAtTime(0.0001, actx.currentTime, 0.25);
+
+  document.getElementById('fScore').textContent   = state.score.toLocaleString('en-US');
+  document.getElementById('fAcc').textContent     = accuracy().toFixed(2) + '%';
+  document.getElementById('fCombo').textContent   = state.maxCombo;
+  document.getElementById('fPerfect').textContent = state.counts.perfect;
+  document.getElementById('fGreat').textContent   = state.counts.great;
+  document.getElementById('fGood').textContent    = state.counts.good;
+  document.getElementById('fMiss').textContent    = state.counts.miss;
+
+  endScreen.classList.remove('hidden');
+}
+
+/* =========================================================
+   主循环
+   ========================================================= */
+function updateGame(dt) {
+  while (nextIdx < chart.length &&
+         chart[nextIdx].t - songTime < SPAWN_D / SPEED) {
+    spawnNote(chart[nextIdx++]);
+  }
+
+  checkSlides();
+
+  for (let i = active.length - 1; i >= 0; i--) {
+    const n = active[i];
+    if (n.state === 'done') {
+      releaseVisual(n.type, n.obj);
+      active.splice(i, 1);
+      continue;
+    }
+    updateNoteVisual(n);
+    updateNoteLogic(n);
+    if (n.state === 'done') {
+      releaseVisual(n.type, n.obj);
+      active.splice(i, 1);
+    }
+  }
+
+  if (songTime > songEnd) endGame();
+}
+
+function scheduleAudio() {
+  const ahead = actx.currentTime + 0.12;
+  while (true) {
+    const t = songStart + schedStep * STEP;
+    if (t > ahead) break;
+    if (t > actx.currentTime - 0.02) scheduleStep(schedStep, t);
+    schedStep++;
+  }
+}
+
+let lastFrame = performance.now();
+
+function animate(now) {
+  requestAnimationFrame(animate);
+
+  const dt = Math.min((now - lastFrame) / 1000, 0.05);
+  lastFrame = now;
+
+  if (playing && actx) {
+    songTime = actx.currentTime - songStart;
+    scheduleAudio();
+    updateGame(dt);
+  }
+
+  const pulse = 0.85 + Math.sin(now * 0.004) * 0.15;
+  judgeLine.material.opacity = pulse;
+  judgeGlow.material.opacity = 0.10 + Math.sin(now * 0.003) * 0.05;
+
+  updateEffects(dt);
+  renderer.render(scene, camera);
+}
+
+/* =========================================================
+   输入事件
+   ========================================================= */
+const KEYMAP = { KeyD: 0, KeyF: 1, KeyJ: 2, KeyK: 3 };
+
+window.addEventListener('keydown', e => {
+  const lane = KEYMAP[e.code];
+  if (lane === undefined) return;
+  e.preventDefault();
+  if (e.repeat || keyLanes.has(e.code)) return;
+  keyLanes.set(e.code, lane);
+  heldLanes[lane]++;
+  onPress(lane);
+  checkSlides();
+});
+
+window.addEventListener('keyup', e => {
+  const lane = KEYMAP[e.code];
+  if (lane === undefined) return;
+  if (!keyLanes.has(e.code)) return;
+  heldLanes[lane] = Math.max(0, heldLanes[lane] - 1);
+  keyLanes.delete(e.code);
+});
+
+/* 触屏 / 鼠标 */
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const lane = getLaneFromScreen(e.clientX, e.clientY);
+  if (lane < 0) return;
+  pointerLanes.set(e.pointerId, lane);
+  heldLanes[lane]++;
+  onPress(lane);
+  checkSlides();
+});
+
+window.addEventListener('pointermove', e => {
+  if (!pointerLanes.has(e.pointerId)) return;
+  const lane = getLaneFromScreen(e.clientX, e.clientY);
+  if (lane < 0) return;
+  const old = pointerLanes.get(e.pointerId);
+  if (old !== lane) {
+    heldLanes[old] = Math.max(0, heldLanes[old] - 1);
+    heldLanes[lane]++;
+    pointerLanes.set(e.pointerId, lane);
+    laneFlash[lane] = 1;
+    checkSlides();
+  }
+});
+
+function releasePointer(e) {
+  const lane = pointerLanes.get(e.pointerId);
+  if (lane !== undefined) {
+    heldLanes[lane] = Math.max(0, heldLanes[lane] - 1);
+    pointerLanes.delete(e.pointerId);
+  }
+}
+
+window.addEventListener('pointerup', releasePointer);
+window.addEventListener('pointercancel', releasePointer);
+
+/* =========================================================
+   窗口尺寸
+   ========================================================= */
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* =========================================================
+   启动
+   ========================================================= */
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('retryBtn').addEventListener('click', startGame);
+
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
